@@ -1,0 +1,45 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/robot/ustbot_ws/devel/include/**",
+        "/home/robot/arm_ws/devel/include/**",
+        "/opt/ros/melodic/include/**",
+        "/home/robot/arm_ws/src/TEST/Navigation/apriltag_ros/include/**",
+        "/home/robot/ustbot_ws/src/aruco_ros/aruco/include/**",
+        "/home/robot/ustbot_ws/src/aruco_ros/aruco_ros/include/**",
+        "/home/robot/arm_ws/src/TEST/Navigation/byd_robot/byd_robot_global_planner/include/**",
+        "/home/robot/arm_ws/src/TEST/Navigation/byd_robot/byd_robot_local_planner/include/**",
+        "/home/robot/arm_ws/src/TEST/Hardware/clamp_base_controller/include/**",
+        "/home/robot/arm_ws/src/TEST/Navigation/collision_monitor/include/**",
+        "/home/robot/arm_ws/src/TEST/Simulation/diff_odom_fake/include/**",
+        "/home/robot/arm_ws/src/TEST/Hardware/emergency_button/include/**",
+        "/home/robot/ustbot_ws/src/ros_kortex/third_party/gazebo-pkgs/gazebo_grasp_plugin/include/**",
+        "/home/robot/ustbot_ws/src/ros_kortex/third_party/gazebo-pkgs/gazebo_version_helpers/include/**",
+        "/home/robot/arm_ws/src/TEST/Utils/http_log/include/**",
+        "/home/robot/arm_ws/src/TEST/Navigation/hybrid_line_local_planner/include/**",
+        "/home/robot/arm_ws/src/TEST/Hardware/imu/include/**",
+        "/home/robot/ustbot_ws/src/ros_kortex/kortex_driver/include/**",
+        "/home/robot/arm_ws/src/TEST/Navigation/move_base_mxb_18/include/**",
+        "/home/robot/arm_ws/src/TEST/Navigation/mpc_local_planner/mpc_local_planner/include/**",
+        "/home/robot/arm_ws/src/TEST/Navigation/my_global_planner/include/**",
+        "/home/robot/arm_ws/src/TEST/Navigation/byd_robot/path_patroller/include/**",
+        "/home/robot/arm_ws/src/TEST/Navigation/navigation_layers/range_sensor_layer/include/**",
+        "/home/robot/ustbot_ws/src/realsense2_camera/include/**",
+        "/home/robot/ustbot_ws/src/ros_kortex/third_party/roboticsgroup_gazebo_plugins/include/**",
+        "/home/robot/arm_ws/src/TEST/Hardware/ultrasonic/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
+    }
+  ],
+  "version": 4
+}

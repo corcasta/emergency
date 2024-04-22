@@ -1,0 +1,39 @@
+<launch>
+
+    <arg name="marker1Id"         default="105"/>
+    <arg name="marker2Id"         default="329"/>
+    <arg name="marker3Id"         default="459"/>
+    <arg name="marker4Id"         default="715      "/>
+    <arg name="markerSize"        default="0.035"/>    <!-- in m -->
+    <arg name="eye"               default="left"/>
+    <arg name="dct_normalization" default="True" />
+    <arg name="dct_filter_size"   default="4" />
+    <arg name="marker1_frame"     default="marker1" />
+    <arg name="marker2_frame"     default="marker2" />
+    <arg name="marker3_frame"     default="marker3" />
+    <arg name="marker4_frame"     default="marker4" />
+
+
+    <node pkg="aruco_ros" type="multiple" name="aruco_simple">    
+        <remap from="/camera_info" to="/camera/color/camera_info" />
+        <remap from="/image" to="/camera/color/image_raw" />
+        <param name="image_is_rectified" value="True"/>
+        <param name="marker_size" value="$(arg markerSize)"/>
+        <param name="marker_id1" value="$(arg marker1Id)"/>         <!--Equivalent of marker_id-->         
+        <param name="marker_id2" value="$(arg marker2Id)"/>         <!--Equivalent of marker_id-->
+        <param name="marker_id3" value="$(arg marker3Id)"/>         <!--Equivalent of marker_id-->
+        <param name="marker_id4" value="$(arg marker4Id)"/>         <!--Equivalent of marker_id-->         
+        <param name="normalizeImage" value="$(arg dct_normalization)"/>
+
+        <!--<param name="reference_frame" value="$(arg ref_frame)">     I HAVE ADDED THIS ONE-->
+
+        <param name="dct_components_to_remove" value="$(arg dct_filter_size)"/>
+        <param name="parent_name" value="base_link"/>             <!--Equivalent of camera_frame-->
+        <param name="child_name1" value="$(arg marker1_frame)" />   <!--Equivalent of marker_frame-->
+        <param name="child_name2" value="$(arg marker2_frame)" />   <!--Equivalent of marker_frame-->
+        <param name="child_name3" value="$(arg marker3_frame)" />   <!--Equivalent of marker_frame-->
+        <param name="child_name4" value="$(arg marker4_frame)" />   <!--Equivalent of marker_frame-->
+    </node>
+
+</launch>
+

@@ -1,0 +1,19 @@
+<launch>
+  <!-- Launch image_publisher.py -->
+  <node pkg="compd_sensor" type="image_publisher.py" name="image_publisher" output="screen">
+  </node>
+
+  <!-- Wait for image_publisher.py to start publishing -->
+  <rosparam param="image_publisher_started">true</rosparam>
+
+  <!-- Launch tactile_publisher.py -->
+  <node pkg="compd_sensor" type="tactile_publisher.py" name="tactile1" output="screen" if="$(param image_publisher_started)">
+  </node>
+
+  <node pkg="compd_sensor" type="tactile_publisher.py" name="tactile2" output="screen" if="$(param image_publisher_started)">
+  </node>
+
+  <!-- Launch windows_publisher.py -->
+  <node pkg="compd_sensor" type="windows_publisher.py" name="line_node" output="screen" if="$(param image_publisher_started)">
+  </node>
+</launch>
