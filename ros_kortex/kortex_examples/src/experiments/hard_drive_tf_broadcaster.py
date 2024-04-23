@@ -35,7 +35,7 @@ def hard_drive_pose_decorator(buffer, broadcaster):
         t2.child_frame_id = "max_grasp_position"
         t2.transform.translation.x = 0.115
         t2.transform.translation.y = 0
-        t2.transform.translation.z = 0
+        t2.transform.translation.z = 0.1
         t2.transform.rotation.x = t.transform.rotation.x
         t2.transform.rotation.y = t.transform.rotation.y
         t2.transform.rotation.z = t.transform.rotation.z

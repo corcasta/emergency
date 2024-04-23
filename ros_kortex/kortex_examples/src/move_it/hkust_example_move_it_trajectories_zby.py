@@ -173,6 +173,7 @@ class ExampleMoveItTrajectories(object):
     return pose.pose
 
   def reach_cartesian_pose(self, pose, tolerance, constraints):
+    success = True
     arm_group = self.arm_group
     
     # Set the tolerance
@@ -185,9 +186,16 @@ class ExampleMoveItTrajectories(object):
     # Get the current Cartesian Position
     arm_group.set_pose_target(pose)
 
-    # Plan and execute
-    rospy.loginfo("Planning and going to the Cartesian Pose")
-    return arm_group.go(wait=True)
+    # Plan and execute in one command
+    success &= arm_group.go(wait=True)
+    arm_group.stop()
+    arm_group.clear_pose_targets()
+
+    # Show joint positions after movement
+    new_joint_positions = arm_group.get_current_joint_values()
+    rospy.loginfo("Printing current joint positions AFTER movement :")
+    for p in new_joint_positions: rospy.loginfo(p)
+    return success
 
   def reach_gripper_position(self, relative_position):
     """
@@ -207,7 +215,43 @@ class ExampleMoveItTrajectories(object):
 
 
 
-def pre_grasp_decorator(buffer, pose):
+  def target_joint_pose(self, group, pose, tolerance):
+      if group == "arm":
+        move_group = self.arm_group
+      elif group == "gripper":
+        move_group = self.gripper_group
+      else:
+        print("Error: Invalid group name")
+        return False
+      
+      success = True
+
+      # Get the current joint positions
+      current_joint_positions = move_group.get_current_joint_values()
+      rospy.loginfo("Printing current joint positions BEFORE movement :")
+      for p in current_joint_positions: rospy.loginfo(p)
+
+      # Set the goal joint tolerance
+      move_group.set_goal_joint_tolerance(tolerance)
+      move_group.set_joint_value_target(pose, True)
+
+      # Plan and execute in one command
+      success &= move_group.go(wait=True)
+      move_group.stop()
+      move_group.clear_pose_targets()
+
+      # Show joint positions after movement
+      new_joint_positions = move_group.get_current_joint_values()
+      rospy.loginfo("Printing current joint positions AFTER movement :")
+      for p in new_joint_positions: rospy.loginfo(p)
+      return success
+
+
+
+def grasp_decorator(buffer, pose, target_frame):
+  """
+  target_frame: type string, representing the frame pose we want to move on (e.g. pre_grasp_position)
+  """
   tf_buffer = buffer
   def pre_grasp_callback(pose_stamped):
     """
@@ -215,8 +259,8 @@ def pre_grasp_decorator(buffer, pose):
     """
     #global target_pose
     #tf_buffer.can_transform('base_link', 'pre_grasp_position', rospy.Time(0), rospy.Duration(4.0))
-    transform = tf_buffer.lookup_transform('base_link', 'pre_grasp_position', rospy.Time())
-    print(transform)
+    transform = tf_buffer.lookup_transform('base_link', target_frame, rospy.Time())
+    #print(transform)
     pose.position.x = transform.transform.translation.x
     pose.position.y = transform.transform.translation.y
     pose.position.z = transform.transform.translation.z
@@ -237,9 +281,14 @@ def main():
   #***********************************************************
   tfBuffer = tf2_ros.Buffer()
   listener = tf2_ros.TransformListener(tfBuffer)
+  
   pre_grasp_pose = Pose()
-  pre_grasp_callback = pre_grasp_decorator(tfBuffer, pre_grasp_pose)
+  pre_grasp_callback = grasp_decorator(tfBuffer, pre_grasp_pose, "pre_grasp_position")
   rospy.Subscriber("/aruco_single/pose", PoseStamped, pre_grasp_callback)
+
+  grasp_pose = Pose()
+  grasp_callback = grasp_decorator(tfBuffer, grasp_pose, "max_grasp_position")
+  rospy.Subscriber("/aruco_single/pose", PoseStamped, grasp_callback)
   #***********************************************************
   #***********************************************************
 
@@ -256,14 +305,57 @@ def main():
     print("INSIDE SUCCESS")
 
     pose_vector = 0
+    state = "PRE_GRASP_POSITION"
+
     while not rospy.is_shutdown():
-      new_pose_vect = math.sqrt(pre_grasp_pose.position.x**2 + pre_grasp_pose.position.y**2 + pre_grasp_pose.position.z**2)
-      if abs(pose_vector-new_pose_vect) > 0.01:
-        print("INSIDE IF STATEMENT")
-        #example.reach_pose("arm", pre_grasp_pose)
-        example.reach_cartesian_pose(pre_grasp_pose, tolerance=0.001, constraints=None)
-        pose_vector = new_pose_vect
-        rospy.sleep(1)
+
+      if state == "PRE_GRASP_POSITION":
+        # This state as the name implies will make 
+        # the arm move to the pre-grasp position
+        new_pose_vect = math.sqrt(pre_grasp_pose.position.x**2 + pre_grasp_pose.position.y**2 + pre_grasp_pose.position.z**2)
+        if abs(pose_vector-new_pose_vect) > 0.01:
+          print("Moving to PRE_GRASP_POSITION")  
+          #example.reach_pose("arm", pre_grasp_pose)
+          #process = example.reach_cartesian_pose(pre_grasp_pose, tolerance=0.001, constraints=None)
+          process = example.target_joint_pose("arm", pre_grasp_pose, tolerance=0.01)
+          print("Success? ", process)
+          rospy.sleep(5)
+
+          tcp_pose = example.arm_group.get_current_pose() # Tool frame pose wrt base_link
+          pose_vector = math.sqrt(tcp_pose.pose.position.x**2 + tcp_pose.pose.position.y**2 + tcp_pose.pose.position.z**2)
+          # If the robot arm reached target position we can  
+          # move to the next state in the sequence else we 
+          # stay in the same state until we are completely done
+          if process:
+            state = "GRASP_POSITION"
+          else:
+            state = "PRE_GRASP_POSITION"
+
+
+      elif state == "GRASP_POSITION":
+        # This state as the name implies will make 
+        # the arm move to the pre-grasp position
+        new_pose_vect = math.sqrt(grasp_pose.position.x**2 + grasp_pose.position.y**2 + grasp_pose.position.z**2)
+        if abs(pose_vector-new_pose_vect) > 0.01:
+          print("Moving to GRASP_POSITION")  
+          #example.reach_pose("arm", pre_grasp_pose)
+          #process = example.reach_cartesian_pose(grasp_pose, tolerance=0.001, constraints=None)
+          process = example.target_joint_pose("arm", grasp_pose, tolerance=0.01)
+          print("Success? ", process)
+          rospy.sleep(2)
+
+          tcp_pose = example.arm_group.get_current_pose() # Tool frame pose wrt base_link
+          pose_vector = math.sqrt(tcp_pose.pose.position.x**2 + tcp_pose.pose.position.y**2 + tcp_pose.pose.position.z**2)
+          # If the robot arm reached target position we can  
+          # move to the next state in the sequence else we 
+          # stay in the same state until we are completely done
+          if process:
+            state = "DONE"
+          else:
+            state = "GRASP_POSITION"
+
+      elif state == "DONE":
+        print("*********** DONE :) ***********")
 
 
 
