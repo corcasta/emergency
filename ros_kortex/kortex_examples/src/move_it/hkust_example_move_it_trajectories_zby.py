@@ -316,8 +316,8 @@ def main():
         if abs(pose_vector-new_pose_vect) > 0.01:
           print("Moving to PRE_GRASP_POSITION")  
           #example.reach_pose("arm", pre_grasp_pose)
-          #process = example.reach_cartesian_pose(pre_grasp_pose, tolerance=0.001, constraints=None)
-          process = example.target_joint_pose("arm", pre_grasp_pose, tolerance=0.01)
+          process = example.reach_cartesian_pose(pre_grasp_pose, tolerance=0.001, constraints=None)
+          #process = example.target_joint_pose("arm", pre_grasp_pose, tolerance=0.01)
           print("Success? ", process)
           rospy.sleep(5)
 
@@ -328,19 +328,20 @@ def main():
           # stay in the same state until we are completely done
           if process:
             state = "GRASP_POSITION"
+            pre_grasp_pose_saved = pre_grasp_pose
           else:
             state = "PRE_GRASP_POSITION"
 
 
       elif state == "GRASP_POSITION":
         # This state as the name implies will make 
-        # the arm move to the pre-grasp position
+        # the arm move to the grasp position
         new_pose_vect = math.sqrt(grasp_pose.position.x**2 + grasp_pose.position.y**2 + grasp_pose.position.z**2)
         if abs(pose_vector-new_pose_vect) > 0.01:
           print("Moving to GRASP_POSITION")  
-          #example.reach_pose("arm", pre_grasp_pose)
-          #process = example.reach_cartesian_pose(grasp_pose, tolerance=0.001, constraints=None)
-          process = example.target_joint_pose("arm", grasp_pose, tolerance=0.01)
+          #example.reach_pose("arm", grasp_pose)
+          process = example.reach_cartesian_pose(grasp_pose, tolerance=0.001, constraints=None)
+          #process = example.target_joint_pose("arm", grasp_pose, tolerance=0.01)
           print("Success? ", process)
           rospy.sleep(2)
 
@@ -350,11 +351,46 @@ def main():
           # move to the next state in the sequence else we 
           # stay in the same state until we are completely done
           if process:
-            state = "DONE"
+            state = "CLOSE_GRIPPER"
           else:
             state = "GRASP_POSITION"
+      
 
-      elif state == "DONE":
+      elif state == "CLOSE_GRIPPER":
+        # This state as the name implies will make 
+        # the arm move to the CLOSE_GRIPPER position
+        print("Moving GRIPPER")
+        process = example.reach_gripper_position(0.8)
+        if process:
+          state = "POST_GRASP_POSITION"
+        else:
+          state = "CLOSE_GRIPPER"
+
+
+      elif state == "POST_GRASP_POSITION":
+        # This state as the name implies will make 
+        # the arm move to the POST_GRASP_POSITION
+        new_pose_vect = math.sqrt(pre_grasp_pose_saved.position.x**2 + pre_grasp_pose_saved.position.y**2 + pre_grasp_pose_saved.position.z**2)
+        if abs(pose_vector-new_pose_vect) > 0.01:
+          print("Moving to POST_GRASP_POSITION")  
+          #example.reach_pose("arm", pre_grasp_pose)
+          process = example.reach_cartesian_pose(pre_grasp_pose_saved, tolerance=0.001, constraints=None)
+          #process = example.target_joint_pose("arm", pre_grasp_pose_saved, tolerance=0.01)
+          print("Success? ", process)
+          rospy.sleep(5)
+
+          tcp_pose = example.arm_group.get_current_pose() # Tool frame pose wrt base_link
+          pose_vector = math.sqrt(tcp_pose.pose.position.x**2 + tcp_pose.pose.position.y**2 + tcp_pose.pose.position.z**2)
+          # If the robot arm reached target position we can  
+          # move to the next state in the sequence else we 
+          # stay in the same state until we are completely done
+          if process:
+            state = "BASKET_POSITION"
+          else:
+            state = "POST_GRASP_POSITION"
+
+      elif state == "BASKET_POSITION":
+        process = example.reach_gripper_position(0.1)
         print("*********** DONE :) ***********")
 
 
