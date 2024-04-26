@@ -302,7 +302,7 @@ def main():
 
   sudden_stop = std_msgs.msg.Bool()
   stop_callback = stop_decorator(example.arm_group, sudden_stop)
-  disk_detector = rospy.Subscriber("/detector1", std_msgs.msg.Bool, stop_callback)
+  
   #***********************************************************
   #***********************************************************
 
@@ -349,11 +349,12 @@ def main():
 
 
       elif state == "GRASP_POSITION":
+        disk_detector = rospy.Subscriber("/detector1", std_msgs.msg.Bool, stop_callback)
         # This state as the name implies will make 
         # the arm move to the grasp position
         new_pose_vect = math.sqrt(grasp_pose.position.x**2 + grasp_pose.position.y**2 + grasp_pose.position.z**2)
         if abs(pose_vector-new_pose_vect) > 0.01:
-          print("Moving to GRASP_POSITION")  85
+          print("Moving to GRASP_POSITION")  
           #example.reach_pose("arm", grasp_pose)
           process = example.reach_cartesian_pose(grasp_pose, tolerance=0.001, constraints=None)
           #process = example.target_joint_pose("arm", grasp_pose, tolerance=0.01)
