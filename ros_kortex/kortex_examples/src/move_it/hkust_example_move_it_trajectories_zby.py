@@ -47,6 +47,7 @@ import rospy
 import moveit_commander
 import moveit_msgs.msg
 import geometry_msgs.msg
+import std_msgs.msg
 from geometry_msgs.msg import Pose, PoseStamped, TransformStamped
 from math import pi
 from std_srvs.srv import Empty
@@ -213,8 +214,6 @@ class ExampleMoveItTrajectories(object):
     except:
       return False 
 
-
-
   def target_joint_pose(self, group, pose, tolerance):
       if group == "arm":
         move_group = self.arm_group
@@ -247,12 +246,11 @@ class ExampleMoveItTrajectories(object):
       return success
 
 
-
-def grasp_decorator(buffer, pose, target_frame):
+def grasp_decorator(tf_buffer, pose, target_frame):
   """
   target_frame: type string, representing the frame pose we want to move on (e.g. pre_grasp_position)
   """
-  tf_buffer = buffer
+  #tf_buffer = buffer
   def pre_grasp_callback(pose_stamped):
     """
     pose_stamped: type PoseStamped msg
@@ -273,12 +271,24 @@ def grasp_decorator(buffer, pose, target_frame):
   return pre_grasp_callback
 
 
+def stop_decorator(group, emergency_stop):
+  def stop_callback(bool_msg):
+    if bool_msg.data == True:
+      print("Stopping Arm Movement")
+      group.stop()
+      print("Arm should be completely stop")
+      emergency_stop.data = True
+      
+  return stop_callback
+
+
 def main():
   global target_pose
   example = ExampleMoveItTrajectories()
 
   #***********************************************************
   #***********************************************************
+  waiting_time = 2
   tfBuffer = tf2_ros.Buffer()
   listener = tf2_ros.TransformListener(tfBuffer)
   
@@ -289,6 +299,10 @@ def main():
   grasp_pose = Pose()
   grasp_callback = grasp_decorator(tfBuffer, grasp_pose, "max_grasp_position")
   rospy.Subscriber("/aruco_single/pose", PoseStamped, grasp_callback)
+
+  sudden_stop = std_msgs.msg.Bool()
+  stop_callback = stop_decorator(example.arm_group, sudden_stop)
+  disk_detector = rospy.Subscriber("/detector1", std_msgs.msg.Bool, stop_callback)
   #***********************************************************
   #***********************************************************
 
@@ -317,9 +331,10 @@ def main():
           print("Moving to PRE_GRASP_POSITION")  
           #example.reach_pose("arm", pre_grasp_pose)
           process = example.reach_cartesian_pose(pre_grasp_pose, tolerance=0.001, constraints=None)
+          print("It is moving")
           #process = example.target_joint_pose("arm", pre_grasp_pose, tolerance=0.01)
           print("Success? ", process)
-          rospy.sleep(5)
+          rospy.sleep(waiting_time)
 
           tcp_pose = example.arm_group.get_current_pose() # Tool frame pose wrt base_link
           pose_vector = math.sqrt(tcp_pose.pose.position.x**2 + tcp_pose.pose.position.y**2 + tcp_pose.pose.position.z**2)
@@ -338,29 +353,43 @@ def main():
         # the arm move to the grasp position
         new_pose_vect = math.sqrt(grasp_pose.position.x**2 + grasp_pose.position.y**2 + grasp_pose.position.z**2)
         if abs(pose_vector-new_pose_vect) > 0.01:
-          print("Moving to GRASP_POSITION")  
+          print("Moving to GRASP_POSITION")  85
           #example.reach_pose("arm", grasp_pose)
           process = example.reach_cartesian_pose(grasp_pose, tolerance=0.001, constraints=None)
           #process = example.target_joint_pose("arm", grasp_pose, tolerance=0.01)
           print("Success? ", process)
-          rospy.sleep(2)
+          rospy.sleep(waiting_time)
 
           tcp_pose = example.arm_group.get_current_pose() # Tool frame pose wrt base_link
           pose_vector = math.sqrt(tcp_pose.pose.position.x**2 + tcp_pose.pose.position.y**2 + tcp_pose.pose.position.z**2)
           # If the robot arm reached target position we can  
           # move to the next state in the sequence else we 
           # stay in the same state until we are completely done
-          if process:
+          
+          #print("SUDDEN STOP: ", sudden_stop.data)
+          if sudden_stop.data:
+            # We are expecting the gripper to detect the red line
+            # somewhere in between the trayectory if that doesnt happened
+            # go back to pre-grasp and repeat the motion to the grasp position
+            # until the red line is detected. 
+            disk_detector.unregister()
+            #example.arm_group.forget_joint_values()
+            #example.arm_group.set_start_state(example.robot.get_current_state())
+            #example.arm_group.clear_pose_target("end_effector_link")
+            #example.gripper_group.clear_pose_target("end_effector_link")
+            #example.arm_group.set_start_state_to_current_state()
             state = "CLOSE_GRIPPER"
           else:
-            state = "GRASP_POSITION"
+            state = "PRE_GRASP_POSITION"
+          
       
 
       elif state == "CLOSE_GRIPPER":
         # This state as the name implies will make 
         # the arm move to the CLOSE_GRIPPER position
-        print("Moving GRIPPER")
-        process = example.reach_gripper_position(0.8)
+        print("CLOSE GRIPPER")
+        process = example.reach_gripper_position(0.85)
+        print("Process: ", process)
         if process:
           state = "POST_GRASP_POSITION"
         else:
@@ -377,7 +406,7 @@ def main():
           process = example.reach_cartesian_pose(pre_grasp_pose_saved, tolerance=0.001, constraints=None)
           #process = example.target_joint_pose("arm", pre_grasp_pose_saved, tolerance=0.01)
           print("Success? ", process)
-          rospy.sleep(5)
+          rospy.sleep(waiting_time)
 
           tcp_pose = example.arm_group.get_current_pose() # Tool frame pose wrt base_link
           pose_vector = math.sqrt(tcp_pose.pose.position.x**2 + tcp_pose.pose.position.y**2 + tcp_pose.pose.position.z**2)
