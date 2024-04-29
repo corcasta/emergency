@@ -16,8 +16,8 @@ def hard_drive_pose_decorator(buffer, broadcaster):
         t.header.stamp = rospy.Time.now()
         t.header.frame_id = "marker1"
         t.child_frame_id = "pre_grasp_position"
-        t.transform.translation.x = 0.115
-        t.transform.translation.y = 0
+        t.transform.translation.x = 0.135
+        t.transform.translation.y = -0.02
         t.transform.translation.z = 0.25
 
         transform_data = tf_buffer.lookup_transform('marker1', 'marker1', rospy.Time())
@@ -33,9 +33,9 @@ def hard_drive_pose_decorator(buffer, broadcaster):
         t2.header.stamp = rospy.Time.now()
         t2.header.frame_id = "marker1"
         t2.child_frame_id = "max_grasp_position"
-        t2.transform.translation.x = 0.115
-        t2.transform.translation.y = 0
-        t2.transform.translation.z = 0.1
+        t2.transform.translation.x = 0.135
+        t2.transform.translation.y = -0.02
+        t2.transform.translation.z = 0.07
         t2.transform.rotation.x = t.transform.rotation.x
         t2.transform.rotation.y = t.transform.rotation.y
         t2.transform.rotation.z = t.transform.rotation.z
@@ -50,10 +50,10 @@ def hard_drive_pose_decorator(buffer, broadcaster):
         t3.transform.translation.x = 0
         t3.transform.translation.y = 0
         t3.transform.translation.z = 0
-        t3.transform.rotation.x = -0.7071068
-        t3.transform.rotation.y = 0.7071068
-        t3.transform.rotation.z = 0
-        t3.transform.rotation.w = 0    
+        t3.transform.rotation.x = 1#-0.7071068
+        t3.transform.rotation.y = 0#0.7071068
+        t3.transform.rotation.z = 0#0
+        t3.transform.rotation.w = 0#0    
         br.sendTransform(t3)
 
     return hard_drive_pose_callback

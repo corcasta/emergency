@@ -52,6 +52,7 @@ from geometry_msgs.msg import Pose, PoseStamped, TransformStamped
 from math import pi
 from std_srvs.srv import Empty
 import tf2_ros
+import copy
 
 class ExampleMoveItTrajectories(object):
   """ExampleMoveItTrajectories"""
@@ -132,8 +133,8 @@ class ExampleMoveItTrajectories(object):
 
       # Get the current joint positions
       current_joint_positions = move_group.get_current_joint_values()
-      rospy.loginfo("Printing current joint positions BEFORE movement :")
-      for p in current_joint_positions: rospy.loginfo(p)
+      #rospy.loginfo("Printing current joint positions BEFORE movement :")
+      #or p in current_joint_positions: rospy.loginfo(p)
 
       # Set the goal joint tolerance
       move_group.set_goal_joint_tolerance(tolerance)
@@ -144,8 +145,8 @@ class ExampleMoveItTrajectories(object):
 
       # Show joint positions after movement
       new_joint_positions = move_group.get_current_joint_values()
-      rospy.loginfo("Printing current joint positions AFTER movement :")
-      for p in new_joint_positions: rospy.loginfo(p)
+      #rospy.loginfo("Printing current joint positions AFTER movement :")
+      #for p in new_joint_positions: rospy.loginfo(p)
       return success
 
   def reach_named_position(self, target):
@@ -194,9 +195,23 @@ class ExampleMoveItTrajectories(object):
 
     # Show joint positions after movement
     new_joint_positions = arm_group.get_current_joint_values()
-    rospy.loginfo("Printing current joint positions AFTER movement :")
-    for p in new_joint_positions: rospy.loginfo(p)
+    #rospy.loginfo("Printing current joint positions AFTER movement :")
+    #for p in new_joint_positions: rospy.loginfo(p)
     return success
+
+  def cartesian_path(self, target_pose):
+    waypoints = []
+    wpose = self.arm_group.get_current_pose().pose
+    wpose.position.x -= target_pose.position.x
+    wpose.position.y -= target_pose.position.y
+    wpose.position.z -= target_pose.position.z
+    waypoints.append(copy.deepcopy(wpose))
+
+    (plan, fraction) = self.arm_group.compute_cartesian_path(
+                                                              waypoints,   # waypoints to follow
+                                                              0.01,        # eef_step
+                                                              0.0) 
+    self.arm_group.execute(plan, wait=True)
 
   def reach_gripper_position(self, relative_position):
     """
@@ -245,6 +260,10 @@ class ExampleMoveItTrajectories(object):
       for p in new_joint_positions: rospy.loginfo(p)
       return success
 
+  def set_planner(self, planner_id):
+      if planner_id:
+          self.arm_group.set_planner_id(planner_id)
+          self.gripper_group.set_planner_id(planner_id)
 
 def grasp_decorator(tf_buffer, pose, target_frame):
   """
@@ -283,9 +302,9 @@ def stop_decorator(group, emergency_stop):
 
 
 def main():
-  global target_pose
+  planner = "BFMT"
   example = ExampleMoveItTrajectories()
-
+  example.set_planner(planner)
   #***********************************************************
   #***********************************************************
   waiting_time = 2
@@ -306,7 +325,7 @@ def main():
   #***********************************************************
   #***********************************************************
 
-
+  activate_subscription = True
 
   # For testing purposes
   success = example.is_init_success
@@ -319,18 +338,33 @@ def main():
     print("INSIDE SUCCESS")
 
     pose_vector = 0
-    state = "PRE_GRASP_POSITION"
+    state = "HOME_POSITION"
 
     while not rospy.is_shutdown():
+      #*************************************************************************************************************************
+      if state == "HOME_POSITION":
+        home_pose =  [0,
+                      -1.710422667,
+                      -1.3613568166,
+                      -3.1066860685,
+                      1.8849555922,
+                      -1.5707963268]
+        process = example.reach_joint_angles("arm", home_pose, tolerance=0.001)
+        if process:
+          state = "PRE_GRASP_POSITION"
+        else:
+          state = "HOME_POSITION"
+      #*************************************************************************************************************************
 
-      if state == "PRE_GRASP_POSITION":
+      #*************************************************************************************************************************
+      elif state == "PRE_GRASP_POSITION":
         # This state as the name implies will make 
         # the arm move to the pre-grasp position
         new_pose_vect = math.sqrt(pre_grasp_pose.position.x**2 + pre_grasp_pose.position.y**2 + pre_grasp_pose.position.z**2)
         if abs(pose_vector-new_pose_vect) > 0.01:
           print("Moving to PRE_GRASP_POSITION")  
           #example.reach_pose("arm", pre_grasp_pose)
-          process = example.reach_cartesian_pose(pre_grasp_pose, tolerance=0.001, constraints=None)
+          process = example.reach_cartesian_pose(pre_grasp_pose, tolerance=0.01, constraints=None)
           print("It is moving")
           #process = example.target_joint_pose("arm", pre_grasp_pose, tolerance=0.01)
           print("Success? ", process)
@@ -346,16 +380,21 @@ def main():
             pre_grasp_pose_saved = pre_grasp_pose
           else:
             state = "PRE_GRASP_POSITION"
+      #*************************************************************************************************************************
 
-
+      #*************************************************************************************************************************
       elif state == "GRASP_POSITION":
-        disk_detector = rospy.Subscriber("/detector1", std_msgs.msg.Bool, stop_callback)
         # This state as the name implies will make 
         # the arm move to the grasp position
+        if activate_subscription:
+          disk_detector = rospy.Subscriber("/detector1", std_msgs.msg.Bool, stop_callback)
+          activate_subscription = False
+
         new_pose_vect = math.sqrt(grasp_pose.position.x**2 + grasp_pose.position.y**2 + grasp_pose.position.z**2)
         if abs(pose_vector-new_pose_vect) > 0.01:
           print("Moving to GRASP_POSITION")  
           #example.reach_pose("arm", grasp_pose)
+          print(grasp_pose)
           process = example.reach_cartesian_pose(grasp_pose, tolerance=0.001, constraints=None)
           #process = example.target_joint_pose("arm", grasp_pose, tolerance=0.01)
           print("Success? ", process)
@@ -382,21 +421,36 @@ def main():
             state = "CLOSE_GRIPPER"
           else:
             state = "PRE_GRASP_POSITION"
-          
+       #*************************************************************************************************************************   
       
-
+      #*************************************************************************************************************************
       elif state == "CLOSE_GRIPPER":
         # This state as the name implies will make 
         # the arm move to the CLOSE_GRIPPER position
         print("CLOSE GRIPPER")
+        # preset width=0.85, if the tactile feedback is not True, width+0.05,, until the feedback is True
+        """
+          width = 0.85
+          process = example.reach_gripper_position(width)
+
+          def gripper_stop_callback(tactile_msg):
+            global width,process
+
+            if tactile_msg.data is not True:
+              width += 0.005
+              process = example.reach_gripper_position(width)
+          rospy.Subscriber("/tactile_msg1",std_msgs.msg.Bool,gripper_stop_callback)
+          """
+        ###
         process = example.reach_gripper_position(0.85)
         print("Process: ", process)
         if process:
           state = "POST_GRASP_POSITION"
         else:
           state = "CLOSE_GRIPPER"
+      #*************************************************************************************************************************
 
-
+      #*************************************************************************************************************************
       elif state == "POST_GRASP_POSITION":
         # This state as the name implies will make 
         # the arm move to the POST_GRASP_POSITION
@@ -415,16 +469,106 @@ def main():
           # move to the next state in the sequence else we 
           # stay in the same state until we are completely done
           if process:
-            state = "BASKET_POSITION"
+            state = "PRE_BASKET_POSITION"
           else:
             state = "POST_GRASP_POSITION"
+      #*************************************************************************************************************************
 
+      #*************************************************************************************************************************
+      elif state == "PRE_BASKET_POSITION":
+        print("Moving to PRE_BASKET_POSITION")
+        post_grasp_pose =  [-0.0872664626,
+                            -0.872664626,
+                            0.2617993878,
+                            -3.054326191,
+                            -1.745329252,
+                            3.1066860685]
+        process = example.reach_joint_angles("arm", post_grasp_pose, tolerance=0.001)
+        print("Success? ", process)
+        rospy.sleep(waiting_time)
+        
+        if process:
+          state = "BASKET_POSITION"
+        else:
+          state = "PRE_BASKET_POSITION"
+      #*************************************************************************************************************************
+
+      #*************************************************************************************************************************
       elif state == "BASKET_POSITION":
-        process = example.reach_gripper_position(0.1)
-        print("*********** DONE :) ***********")
+        print("Moving to BASKET_POSITION")
+        post_grasp_pose =  [-0.0698131701,
+                            -0.9599310886,
+                            0.4886921906,
+                            -3.0717794835,
+                            -1.5358897418,
+                            3.1066860685]
+        process = example.reach_joint_angles("arm", post_grasp_pose, tolerance=0.001)
+        print("Success? ", process)
+        rospy.sleep(waiting_time)
 
+        if process:
+          state = "OPEN_GRIPPER"
+        else:
+          state = "BASKET_POSITION"
+      #*************************************************************************************************************************
 
+      #*************************************************************************************************************************
+      elif state == "OPEN_GRIPPER":
+        # This state as the name implies will make 
+        # the arm move to the CLOSE_GRIPPER position
+        print("OPEN GRIPPER")
+        # preset width=0.85, if the tactile feedback is not True, width+0.05,, until the feedback is True
 
+        ###
+        process = example.reach_gripper_position(0.2)
+        print("Process: ", process)
+        
+        if process:
+          state = "POST_BASKET_POSITION"
+        else:
+          state = "OPEN_GRIPPER"
+      #*************************************************************************************************************************
+      
+      #*************************************************************************************************************************
+      elif state == "POST_BASKET_POSITION":
+        print("Moving to POST_BASKET_POSITION")
+        post_grasp_pose =  [-0.0872664626,
+                            -0.872664626,
+                            0.2617993878,
+                            -3.054326191,
+                            -1.745329252,
+                            3.1066860685]
+                            
+        process = example.reach_joint_angles("arm", post_grasp_pose, tolerance=0.001)
+        print("Success? ", process)
+        rospy.sleep(waiting_time)
+
+        if process:
+          state = "END_POSITION"
+        else:
+          state = "POST_BASKET_POSITION"
+      #*************************************************************************************************************************
+
+      #*************************************************************************************************************************
+      elif state == "END_POSITION":
+        print("Moving to END_POSITION")
+        end_pose =  [0,
+                      -1.710422667,
+                      -1.3613568166,
+                      -3.1066860685,
+                      1.8849555922,
+                      -1.5707963268]
+        process = example.reach_joint_angles("arm", end_pose, tolerance=0.001)
+        print("Success? ", process)
+        rospy.sleep(waiting_time)
+
+        if process:
+          state = "PRE_GRASP_POSITION"
+          print("Done :)")
+          break
+        else:
+          state = "END_POSITION"
+      #*************************************************************************************************************************
   if not success:
       rospy.logerr("The example encountered an error.")
 
