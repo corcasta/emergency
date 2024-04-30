@@ -302,7 +302,32 @@ def stop_decorator(group, emergency_stop):
 
 
 def main():
-  planner = "BFMT"
+  """
+    - SBL
+    - EST
+    - LBKPIECE +
+    - BKPIECE
+    - KPIECE
+    - RRT
+    - RRTConnect
+    - RRTstar
+    - TRRT
+    - PRM
+    - PRMstar
+    - FMT
+    - BFMT -
+    - PDST
+    - STRIDE
+    - BiTRRT
+    - LBTRRT
+    - BiEST
+    - ProjEST
+    - LazyPRM
+    - LazyPRMstar
+    - SPARS
+    - SPARStwo
+  """
+  planner = "RRTConnect"
   example = ExampleMoveItTrajectories()
   example.set_planner(planner)
   #***********************************************************
@@ -360,26 +385,29 @@ def main():
       elif state == "PRE_GRASP_POSITION":
         # This state as the name implies will make 
         # the arm move to the pre-grasp position
-        new_pose_vect = math.sqrt(pre_grasp_pose.position.x**2 + pre_grasp_pose.position.y**2 + pre_grasp_pose.position.z**2)
-        if abs(pose_vector-new_pose_vect) > 0.01:
-          print("Moving to PRE_GRASP_POSITION")  
-          #example.reach_pose("arm", pre_grasp_pose)
-          process = example.reach_cartesian_pose(pre_grasp_pose, tolerance=0.01, constraints=None)
-          print("It is moving")
-          #process = example.target_joint_pose("arm", pre_grasp_pose, tolerance=0.01)
-          print("Success? ", process)
-          rospy.sleep(waiting_time)
+        for _ in range(2):
+          print("Loop")
+          new_pose_vect = math.sqrt(pre_grasp_pose.position.x**2 + pre_grasp_pose.position.y**2 + pre_grasp_pose.position.z**2)
+          if abs(pose_vector-new_pose_vect) > 0.001:
+            print("Moving to PRE_GRASP_POSITION")  
+            #example.reach_pose("arm", pre_grasp_pose)
+            process = example.reach_cartesian_pose(pre_grasp_pose, tolerance=0.01, constraints=None)
+            print("It is moving")
+            #process = example.target_joint_pose("arm", pre_grasp_pose, tolerance=0.01)
+            print("Success? ", process)
+            rospy.sleep(waiting_time)
 
-          tcp_pose = example.arm_group.get_current_pose() # Tool frame pose wrt base_link
-          pose_vector = math.sqrt(tcp_pose.pose.position.x**2 + tcp_pose.pose.position.y**2 + tcp_pose.pose.position.z**2)
-          # If the robot arm reached target position we can  
-          # move to the next state in the sequence else we 
-          # stay in the same state until we are completely done
-          if process:
-            state = "GRASP_POSITION"
-            pre_grasp_pose_saved = pre_grasp_pose
-          else:
-            state = "PRE_GRASP_POSITION"
+            tcp_pose = example.arm_group.get_current_pose() # Tool frame pose wrt base_link
+            pose_vector = math.sqrt(tcp_pose.pose.position.x**2 + tcp_pose.pose.position.y**2 + tcp_pose.pose.position.z**2)
+            # If the robot arm reached target position we can  
+            # move to the next state in the sequence else we 
+            # stay in the same state until we are completely done
+
+            if process:
+              state = "GRASP_POSITION"
+              pre_grasp_pose_saved = pre_grasp_pose
+            else:
+              state = "PRE_GRASP_POSITION"
       #*************************************************************************************************************************
 
       #*************************************************************************************************************************
